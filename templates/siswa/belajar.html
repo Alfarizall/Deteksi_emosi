@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Siswa - Belajar</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body style="margin:0; font-family:sans-serif; background:#f8f9fa;">
+    <nav style="background:#2c3e50; padding:15px; color:white; display:flex; justify-content:space-between;">
+        <span><b>EduSense</b> | Halo, {{ nama }}</span>
+        <a href="/logout" style="color:white; text-decoration:none;">Keluar</a>
+    </nav>
+
+    <div style="display:flex; padding:20px; gap:20px;">
+        <div style="flex:2; background:white; padding:20px; border-radius:10px;">
+            <h2>Materi: Volume Kubus</h2>
+            <p>Rumus Volume Kubus: $$V = s^3$$</p>
+            <p>Hitung volume jika rusuknya 10 cm:</p>
+            <input type="number" id="ans"> <button onclick="alert('Jawaban disimpan')">Kirim</button>
+
+            <div id="ar-box" style="display:none; margin-top:20px; border:2px solid orange; padding:10px;">
+                <p style="color:orange;"><b>Bantuan AR Aktif:</b> Sepertinya Anda butuh visualisasi.</p>
+                <a-scene embedded style="height:200px;">
+                    <a-box position="0 0.5 -3" color="skyblue" animation="property: rotation; to: 0 360 0; loop: true; dur: 4000"></a-box>
+                </a-scene>
+            </div>
+        </div>
+
+        <div style="flex:1; text-align:center;">
+            <video id="video" width="100%" autoplay muted style="border-radius:10px; border:2px solid #333;"></video>
+            <p>Status Emosi: <b id="emo">Stabil</b></p>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        navigator.mediaDevices.getUserMedia({video:true}).then(s => video.srcObject = s);
+        setInterval(() => {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            fetch('/analyze_emotion', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({image: canvas.toDataURL('image/jpeg')})
+            }).then(r => r.json()).then(d => {
+                document.getElementById('emo').innerText = d.emotion;
+                document.getElementById('ar-box').style.display = d.anxiety ? 'block' : 'none';
+            });
+        }, 3000);
+    </script>
+</body>
+</html>
