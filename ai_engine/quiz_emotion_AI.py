@@ -53,6 +53,10 @@ current_answer = 0
 emotion_history = []
 emotion_counter = Counter()
 wrong_streak = 0
+correct_streak = 0
+
+ema_emotion = 4.0   
+alpha = 0.08       
 
 cap = cv2.VideoCapture(0)
 
@@ -86,7 +90,7 @@ def generate_question():
 # CAMERA LOOP
 # =====================
 def update_camera():
-    global difficulty, level
+    global difficulty, level, ema_emotion
 
     ret, frame = cap.read()
     if not ret:
@@ -110,14 +114,20 @@ def update_camera():
         emotion_counter[emotion_text] += 1
         emotion_history.append(emotion_text)
 
-        if emotion_text in positive:
-            difficulty = min(difficulty + 0.05, 5.0)
-            level = int(round(difficulty))
-        elif emotion_text in negative:
-            difficulty = max(difficulty - 0.05, 1.0)
-            level = int(round(difficulty))
+        emotion_num = emotion_value[emotion_text]
+        # EMA update
+        ema_emotion = alpha * emotion_num + (1 - alpha) * ema_emotion
+
+        # Mapping EMA → difficulty target
+        # Netral (4) sebagai baseline
+        delta = (ema_emotion - 4.0) * 0.1
+
+        difficulty = np.clip(difficulty + delta, 1.0, 5.0)
+        level = int(round(difficulty))
 
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0,255,0), 2)
+    
+    ema_label.config(text=f"EMA Emosi: {ema_emotion:.2f}")
 
     cv2.putText(frame, emotion_text, (20,40),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
@@ -149,32 +159,37 @@ def next_question():
     score_label.config(text=f"Skor: {score}")
 
 def submit_answer():
-    global score, wrong_streak, difficulty, level
+    global score, wrong_streak, correct_streak
+    global difficulty, level
 
     try:
         user_answer = int(answer_entry.get())
-
-        if user_answer == current_answer:
-            score += 10
-            wrong_streak = 0  # reset jika benar
-        else:
-            wrong_streak += 1
-
     except:
-        wrong_streak += 1
+        messagebox.showwarning("Error", "Masukkan angka!")
+        return
 
-    # Jika salah 3 kali berturut-turut
-    if wrong_streak >= 3:
-        difficulty = max(difficulty - 1.0, 1.0)
-        level = int(round(difficulty))
+    if user_answer == current_answer:
+        score += 10
+        correct_streak += 1
         wrong_streak = 0
 
-        messagebox.showwarning(
-            "Kesulitan Diturunkan",
-            "Anda salah 3 kali berturut-turut.\n"
-            f"Tingkat kesulitan diturunkan ke Level {level}."
-        )
+        # ⬆️ NAIK KESULITAN JIKA BENAR BERTURUT
+        if correct_streak >= 3:
+            difficulty = min(difficulty + 1.0, 5.0)
+            level = int(round(difficulty))
+            correct_streak = 0
 
+    else:
+        wrong_streak += 1
+        correct_streak = 0
+
+        # ⬇️ TURUN KESULITAN JIKA SALAH BERTURUT
+        if wrong_streak >= 3:
+            difficulty = max(difficulty - 1.0, 1.0)
+            level = int(round(difficulty))
+            wrong_streak = 0
+
+    score_label.config(text=f"Skor: {score}")
     answer_entry.delete(0, tk.END)
     next_question()
 
@@ -233,6 +248,9 @@ ax.set_title("Grafik Emosi")
 
 canvas = FigureCanvasTkAgg(fig, master=root)
 canvas.get_tk_widget().grid(row=0, column=1, padx=5, pady=5)
+
+ema_label = tk.Label(root, text="EMA Emosi: 4.00")
+ema_label.grid(row=6, column=0, columnspan=2)
 
 # Quiz UI
 question_label = tk.Label(root, text="Klik Mulai", font=("Arial", 16))
