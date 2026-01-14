@@ -49,6 +49,6 @@ model.compile(
 
 model.fit(X, y, epochs=30, batch_size=32)
 
-model.save("difficulty_predictor.h5")
+model.save("difficulty_predictor.keras")
 
-print("✅ Model saved: difficulty_predictor.h5")
+print("✅ Model saved: difficulty_predictor.keras")

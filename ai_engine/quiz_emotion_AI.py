@@ -15,7 +15,7 @@ import csv
 # LOAD MODEL
 # =====================
 emotion_model = load_model("emotion_model.h5", compile=False)
-difficulty_model = load_model("difficulty_predictor.h5", compile=False)
+difficulty_model = load_model("difficulty_predictor.keras", compile=False)
 
 emotion_labels = {
     0: "Marah",
@@ -58,7 +58,7 @@ correct_streak = 0
 total_questions = 0
 correct_answers = 0
 ema_emotion_value = 4.0 
-     
+dataset_buffer = []
 
 cap = cv2.VideoCapture(0)
 
@@ -168,6 +168,8 @@ def submit_answer():
     global score, wrong_streak, correct_streak
     global difficulty, level
 
+    prev_difficulty = level
+
     try:
         user_answer = int(answer_entry.get())
     except:
@@ -194,6 +196,9 @@ def submit_answer():
             difficulty = max(difficulty - 1.0, 1.0)
             level = int(round(difficulty))
             wrong_streak = 0
+    
+    next_difficulty = level
+    log_difficulty_sample(prev_difficulty, next_difficulty)
 
     score_label.config(text=f"Skor: {score}")
     answer_entry.delete(0, tk.END)
@@ -235,7 +240,36 @@ def finish_quiz():
         "Hasil disimpan ke:\nhasil_kuis_emosi.csv"
     )
 
+    with open("difficulty_dataset.csv", "a", newline="") as f:
+        writer = csv.writer(f)
+        if f.tell() == 0:
+            writer.writerow([
+                "ema_emotion",
+                "accuracy",
+                "correct_streak",
+                "wrong_streak",
+                "prev_difficulty",
+                "next_difficulty"
+            ])
+
+        for row in dataset_buffer:
+            writer.writerow(row)
+
     root.destroy()
+
+def log_difficulty_sample(prev_diff, next_diff):
+    total = correct_streak + wrong_streak
+    accuracy = correct_streak / total if total > 0 else 0
+
+    row = [
+        round(ema_emotion_value, 3),
+        round(accuracy, 3),
+        correct_streak,
+        wrong_streak,
+        prev_diff,
+        next_diff
+    ]
+    dataset_buffer.append(row)
 
 # =====================
 # UI SETUP
